@@ -3,3 +3,5 @@ pypdf
 sentence-transformers 
 ragas 
 openai
+datasets
+chainlit==0.6.2

@@ -15,7 +15,7 @@ def to_cache():
     documents = SimpleDirectoryReader(
         input_files=["hitchhikers.pdf"]
     ).load_data()
-
+    # num = 5
     random.seed(42)
     random.shuffle(documents)
 
@@ -23,70 +23,42 @@ def to_cache():
         llm=OpenAI(model="gpt-3.5-turbo", temperature=0.3)
     )
 
-    question_gen_query = (
-        "You are a Teacher/ Professor. Your task is to setup "
-        "a quiz/examination. Using the provided context from a "
-        "report on climate change and the oceans, formulate "
-        "a single question that captures an important fact from the "
-        "context. Restrict the question to the context information provided."
-    )
+    # question_gen_query = (
+    #     "You are a Teacher/ Professor. Your task is to setup "
+    #     "a quiz/examination. Using the provided context from a "
+    #     "report on climate change and the oceans, formulate "
+    #     "a single question that captures an important fact from the "
+    #     "context. Restrict the question to the context information provided."
+    # )
 
-    dataset_generator = DatasetGenerator.from_documents(
-        documents[:50],
-        question_gen_query=question_gen_query,
-        service_context=gpt_35_context,
-    )
+    # dataset_generator = DatasetGenerator.from_documents(
+    #     documents[:50],
+    #     question_gen_query=question_gen_query,
+    #     service_context=gpt_35_context,
+    # )
+    # train_questions = dataset_generator.generate_questions_from_nodes(num)
 
-    questions = dataset_generator.generate_questions_from_nodes(num=40)
+    # dataset_generator = DatasetGenerator.from_documents(
+    #     documents[
+    #         50:
+    #     ],  # since we generated ~1 question for 40 documents, we can skip the first 40
+    #     question_gen_query=question_gen_query,
+    #     service_context=gpt_35_context,
+    # )
 
-    with open("train_questions.txt", "w") as f:
-        for question in questions:
-            f.write(question + "\n")
-
-    dataset_generator = DatasetGenerator.from_documents(
-        documents[
-            50:
-        ],  # since we generated ~1 question for 40 documents, we can skip the first 40
-        question_gen_query=question_gen_query,
-        service_context=gpt_35_context,
-    )
-
-    questions = dataset_generator.generate_questions_from_nodes(num=40)
-    with open("eval_questions.txt", "w") as f:
-        for question in questions:
-            f.write(question + "\n")
-
+    # questions = dataset_generator.generate_questions_from_nodes(num)
 
     # limit the context window to 2048 tokens so that refine is used
     gpt_35_context = ServiceContext.from_defaults(
         llm=OpenAI(model="gpt-3.5-turbo", temperature=0.3), context_window=2048
     )
-
     index = VectorStoreIndex.from_documents(documents, service_context=gpt_35_context)
-
     query_engine = index.as_query_engine(similarity_top_k=2)
-    return query_engine
-
-query_engine = to_cache()
-
-@cl.author_rename
-def rename(orig_author: str):
-    rename_dict = {"RetrievalQA": "Consulting The Kens"}
-    return rename_dict.get(orig_author, orig_author)
-
-@cl.on_chat_start
-async def init():
-    msg = cl.Message(content=f"Generating training and evaluation questions...")
-    await msg.send()
 
     questions = []
     with open("eval_questions.txt", "r") as f:
         for line in f:
             questions.append(line.strip())
-
-    msg.content = f"Generated {len(questions)} evaluation questions!"
-    await msg.send()
-
     contexts = []
     answers = []
 
@@ -104,8 +76,21 @@ async def init():
     )
 
     result = evaluate(ds, [answer_relevancy, faithfulness])
+    return query_engine, questions, result
 
-    msg.content = f"Evaluation results: {str(result)}"
+query_engine, eval_questions, eval_result = to_cache()
+
+@cl.author_rename
+def rename(orig_author: str):
+    rename_dict = {"RetrievalQA": "Consulting The Kens"}
+    return rename_dict.get(orig_author, orig_author)
+
+@cl.on_chat_start
+async def init():
+    msg = cl.Message(content=f"Generated {len(eval_questions)} evaluation questions!")
+    await msg.send()
+
+    msg = cl.Message(content=f"Evaluation results: {str(eval_result)}")
     await msg.send()
 
     cl.user_session.set("query_engine", query_engine)

@@ -7,6 +7,5 @@ WORKDIR $HOME/app
 COPY --chown=user . $HOME/app
 COPY ./requirements.txt ~/app/requirements.txt
 RUN pip install -r requirements.txt
-RUN curl https://jaydixit.com/files/PDFs/TheultimateHitchhikersGuide.pdf --output hitchhikers.pdf
 COPY . .
 CMD ["chainlit", "run", "app.py", "--port", "7860"]
