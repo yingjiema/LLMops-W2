@@ -44,16 +44,8 @@ class AutoRetrieveModel(BaseModel):
         )
     )
 
-@cl.author_rename
-def rename(orig_author: str):
-    rename_dict = {"RetrievalQA": "Consulting The Kens"}
-    return rename_dict.get(orig_author, orig_author)
-
-@cl.on_chat_start
-async def init():
-    msg = cl.Message(content=f"Building Index...")
-    await msg.send()
-
+@cl.cache
+def to_cache():
     embed_model = OpenAIEmbedding(embed_batch_size=10) ### YOUR CODE HERE
     chunk_size = 2048 ### YOUR CODE HERE
     llm = OpenAI(
@@ -199,6 +191,19 @@ async def init():
     barbenheimer_agent = OpenAIAgent.from_tools(
         [sql_tool, auto_retrieve_tool], llm=llm, verbose=True
     )
+    return barbenheimer_agent
+
+barbenheimer_agent = to_cache()
+
+@cl.author_rename
+def rename(orig_author: str):
+    rename_dict = {"RetrievalQA": "Consulting The Kens"}
+    return rename_dict.get(orig_author, orig_author)
+
+@cl.on_chat_start
+async def init():
+    msg = cl.Message(content=f"Building Index...")
+    await msg.send()
 
     msg.content = f"Index built!"
     await msg.send()
